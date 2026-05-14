@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nam-jaap-v3';
+const CACHE_NAME = 'nam-jaap-v5';
 const urlsToCache = [
   './',
   './index.html',

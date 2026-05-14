@@ -8,9 +8,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const countMalasEl = document.getElementById('count-malas');
   const countTotalEl = document.getElementById('count-total');
   
+  const musicBtn = document.getElementById('music-btn');
+  const bgAudio = document.getElementById('bg-audio');
   const settingsBtn = document.getElementById('settings-btn');
   const reportsBtn = document.getElementById('reports-btn');
-  const resetBtn = document.getElementById('reset-btn');
   const statusIndicator = document.getElementById('status-indicator');
 
   // Modals
@@ -19,18 +20,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const resetModal = document.getElementById('reset-modal');
   
   const mantraInput = document.getElementById('mantra-input');
+  const audioTrackSelect = document.getElementById('audio-track');
+  const vibrationToggle = document.getElementById('vibration-toggle');
   const reportPeriodSelect = document.getElementById('report-period');
   const reportTableBody = document.getElementById('report-table-body');
   
   const saveSettingsBtn = document.getElementById('save-settings');
   const cancelSettingsBtn = document.getElementById('cancel-settings');
+  
+  const triggerResetBtn = document.getElementById('trigger-reset-btn');
   const cancelResetBtn = document.getElementById('cancel-reset');
   const confirmResetBtn = document.getElementById('confirm-reset');
   const closeReportsBtn = document.getElementById('close-reports');
 
   // Stop propagation on buttons and modals so they don't trigger the tap
   const interactiveElements = [
-    settingsBtn, reportsBtn, resetBtn, 
+    settingsBtn, reportsBtn, musicBtn,
     settingsModal.querySelector('.modal-content'), 
     reportsModal.querySelector('.modal-content'),
     resetModal.querySelector('.modal-content')
@@ -47,6 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
     today: 0,
     lastDate: '',
     mantra: 'राधा',
+    vibration: true,
+    audioTrack: 'track1.mp3',
     history: {} // Store daily counts: {'YYYY-MM-DD': count}
   };
 
@@ -66,7 +73,9 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (e) {}
     }
     
-    // Migration: ensure history exists
+    if (typeof state.vibration === 'undefined') state.vibration = true;
+    if (typeof state.audioTrack === 'undefined') state.audioTrack = 'track1.mp3';
+
     if (!state.history) {
       state.history = {};
       if (state.lastDate && state.today > 0) {
@@ -77,7 +86,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check if it's a new day
     const currentDateStr = getLocalDateString();
     if (state.lastDate !== currentDateStr) {
-      // If we had a previous day, ensure it is saved in history
       if (state.lastDate && state.today > 0 && !state.history[state.lastDate]) {
         state.history[state.lastDate] = state.today;
       }
@@ -96,6 +104,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateDisplay() {
     mantraText.textContent = state.mantra;
     mantraInput.value = state.mantra;
+    vibrationToggle.checked = state.vibration;
+    
+    // Set track dropdown and audio source correctly
+    audioTrackSelect.value = state.audioTrack;
+    if (bgAudio.getAttribute('src') !== state.audioTrack) {
+      bgAudio.src = state.audioTrack;
+    }
     
     countTodayEl.textContent = state.today.toLocaleString();
     countTotalEl.textContent = state.total.toLocaleString();
@@ -131,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
     saveState();
     updateDisplay();
     
-    if (navigator.vibrate) {
+    if (navigator.vibrate && state.vibration) {
       if (state.today % 108 === 0) {
         navigator.vibrate([100, 50, 100]);
       } else {
@@ -144,17 +159,55 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.today % 108 === 0) pulseElement(countMalasEl);
   });
 
+  // Music Logic
+  let isPlaying = false;
+  musicBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (isPlaying) {
+      bgAudio.pause();
+      musicBtn.classList.remove('active');
+    } else {
+      bgAudio.play().then(() => {
+        musicBtn.classList.add('active');
+      }).catch(err => {
+        alert("Audio file not found! Ensure you placed '" + state.audioTrack + "' in the app folder.");
+        console.log("Audio error", err);
+      });
+    }
+    isPlaying = !isPlaying;
+  });
+
   // Settings Logic
   settingsBtn.addEventListener('click', () => settingsModal.classList.add('active'));
   cancelSettingsBtn.addEventListener('click', () => settingsModal.classList.remove('active'));
+  
   saveSettingsBtn.addEventListener('click', () => {
     const newMantra = mantraInput.value.trim();
     if (newMantra) {
       state.mantra = newMantra;
-      saveState();
-      updateDisplay();
     }
+    
+    state.vibration = vibrationToggle.checked;
+    
+    const newTrack = audioTrackSelect.value;
+    if (newTrack !== state.audioTrack) {
+      state.audioTrack = newTrack;
+      bgAudio.src = state.audioTrack;
+      // If currently playing, start playing the new track immediately
+      if (isPlaying) {
+        bgAudio.play().catch(e => console.log(e));
+      }
+    }
+    
+    saveState();
+    updateDisplay();
     settingsModal.classList.remove('active');
+  });
+
+  // Reset Logic inside Settings
+  triggerResetBtn.addEventListener('click', () => {
+    settingsModal.classList.remove('active');
+    resetModal.classList.add('active');
   });
 
   // Reports Logic
@@ -162,17 +215,11 @@ document.addEventListener('DOMContentLoaded', () => {
     generateReport(reportPeriodSelect.value);
     reportsModal.classList.add('active');
   });
-  
   closeReportsBtn.addEventListener('click', () => reportsModal.classList.remove('active'));
-  
-  reportPeriodSelect.addEventListener('change', (e) => {
-    generateReport(e.target.value);
-  });
+  reportPeriodSelect.addEventListener('change', (e) => generateReport(e.target.value));
 
   function generateReport(period) {
     reportTableBody.innerHTML = '';
-    
-    // Sort descending by date (keys are YYYY-MM-DD)
     const dates = Object.keys(state.history).sort((a, b) => b.localeCompare(a));
     
     let filteredDates = dates;
@@ -182,9 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
       cutoffDate.setDate(cutoffDate.getDate() - daysToSubtract);
       cutoffDate.setHours(0,0,0,0);
       
-      filteredDates = dates.filter(dateStr => {
-        return new Date(dateStr) >= cutoffDate;
-      });
+      filteredDates = dates.filter(dateStr => new Date(dateStr) >= cutoffDate);
     }
 
     if (filteredDates.length === 0) {
@@ -212,13 +257,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Reset Logic
-  resetBtn.addEventListener('click', () => resetModal.classList.add('active'));
+  // Confirm Reset Logic
   cancelResetBtn.addEventListener('click', () => resetModal.classList.remove('active'));
   confirmResetBtn.addEventListener('click', () => {
     state.today = 0;
     state.total = 0;
-    state.history = {}; // Clear history
+    state.history = {}; 
     saveState();
     updateDisplay();
     resetModal.classList.remove('active');

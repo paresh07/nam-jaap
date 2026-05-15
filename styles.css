@@ -21,6 +21,7 @@ body {
   background-color: var(--bg-color);
   color: var(--text-color);
   height: 100vh;
+  height: 100dvh; /* Dynamic viewport height fixes mobile browser URL bar issues */
   width: 100vw;
   overflow: hidden;
   display: flex;
@@ -224,7 +225,7 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 1.5rem;
-  padding-bottom: 2rem;
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
 }
 
 .stats-container {

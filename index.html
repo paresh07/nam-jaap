@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Devanagari:wght@400;600&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=8">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
 </head>
 <body>
@@ -26,6 +26,9 @@
         <button id="music-btn" class="icon-btn" aria-label="Toggle Music" title="Play/Pause Background Music">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
         </button>
+        <button id="particles-btn" class="icon-btn" aria-label="Toggle Particles" title="Toggle Floating Mantra">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+        </button>
         <button id="reports-btn" class="icon-btn" aria-label="Reports" title="View History & Reports">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
         </button>
@@ -39,7 +42,10 @@
       <div class="mala-container" id="mala-container"></div>
       <div class="mantra-display">
         <h1 id="mantra-text" class="calm-text">राधा</h1>
-        <div id="mala-round-count" class="mala-round-count">0 / 108</div>
+        <div id="mala-round-count" class="mala-round-count">
+          <span id="round-bead-count">0 / 108</span>
+          <span id="round-timer" class="round-timer">0s</span>
+        </div>
       </div>
     </main>
 
@@ -50,7 +56,7 @@
           <span id="count-today" class="stat-value pulse-target">0</span>
         </div>
         <div class="stat-box main-stat">
-          <span class="stat-label">Malas (108)</span>
+          <span class="stat-label">Total Malas</span>
           <span id="count-malas" class="stat-value highlight pulse-target">0</span>
         </div>
         <div class="stat-box">
@@ -58,7 +64,50 @@
           <span id="count-total" class="stat-value">0</span>
         </div>
       </div>
+      <div class="scroll-indicator">
+        <span>Scroll for stats</span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 13 5 5 5-5M7 6l5 5 5-5"/></svg>
+      </div>
     </footer>
+
+    <!-- New Dashboard Section -->
+    <section class="dashboard-section" id="dashboard">
+      <h2 class="dashboard-title">Personal Records</h2>
+      
+      <div class="bests-grid">
+        <div class="best-card">
+          <span class="best-label">Highest Daily Malas</span>
+          <span id="best-malas" class="best-value">0</span>
+        </div>
+        <div class="best-card">
+          <span class="best-label">Highest Daily Chants</span>
+          <span id="best-chants" class="best-value">0</span>
+        </div>
+      </div>
+
+      <div class="timer-section">
+        <span class="best-label">Total Lifetime Chanting Time</span>
+        <div id="session-timer" class="timer-display">00:00:00</div>
+      </div>
+
+      <div class="history-section">
+        <h3>Last 10 Days History</h3>
+        <div class="table-container">
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Chants</th>
+                <th>Malas</th>
+              </tr>
+            </thead>
+            <tbody id="last-10-days-body">
+              <!-- Rows injected via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
   </div>
 
   <!-- Reports Modal -->
@@ -133,6 +182,19 @@
       <hr class="modal-divider">
       
       <div class="form-group">
+        <label>Transfer Previous Counts</label>
+        <p class="credits-text" style="margin-bottom: 0.5rem;">Import counts from other apps. (Allowed once per month)</p>
+        <div class="transfer-inputs" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+          <input type="number" id="transfer-malas" placeholder="Malas" class="styled-input small-input">
+          <input type="number" id="transfer-chants" placeholder="Chants" class="styled-input small-input">
+        </div>
+        <button id="apply-transfer-btn" class="modal-btn secondary-action" style="background: rgba(234, 179, 8, 0.1); color: var(--primary-color); border: 1px solid var(--primary-color);">Transfer & Add</button>
+        <p id="transfer-status" class="credits-text" style="margin-top: 0.5rem; color: var(--success-color); min-height: 1rem;"></p>
+      </div>
+
+      <hr class="modal-divider">
+      
+      <div class="form-group">
         <button id="trigger-reset-btn" class="modal-btn danger">Reset All Stats</button>
       </div>
     </div>
@@ -150,6 +212,6 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>

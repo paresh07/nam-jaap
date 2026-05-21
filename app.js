@@ -185,7 +185,15 @@ document.addEventListener('DOMContentLoaded', () => {
     countTodayEl.textContent = state.today.toLocaleString();
     countTotalEl.textContent = state.total.toLocaleString();
     
-    const totalMalas = Math.floor(state.total / 108);
+    // Calculate total malas completed based on daily history + today's progress + transferred malas
+    // to prevent remainder chants from causing the count to increase at arbitrary numbers (like 58 or 104)
+    const historyChants = Object.values(state.history || {}).reduce((a, b) => a + b, 0);
+    const transferredChants = Math.max(0, state.total - (historyChants + state.today));
+    const historyMalas = Object.values(state.history || {}).reduce((sum, count) => sum + Math.floor(count / 108), 0);
+    const todayMalas = Math.floor(state.today / 108);
+    const transferredMalas = Math.floor(transferredChants / 108);
+    const totalMalas = historyMalas + todayMalas + transferredMalas;
+    
     countMalasEl.textContent = totalMalas.toLocaleString();
     
     updateMalaDisplay();
@@ -468,51 +476,54 @@ document.addEventListener('DOMContentLoaded', () => {
   // Data Transfer Logic
   const applyTransferBtn = document.getElementById('apply-transfer-btn');
   const transferMalasInput = document.getElementById('transfer-malas');
-  const transferChantsInput = document.getElementById('transfer-chants');
   const transferStatus = document.getElementById('transfer-status');
 
   function checkTransferAvailability() {
     if (!state.lastTransferDate) {
       applyTransferBtn.disabled = false;
-      applyTransferBtn.textContent = 'Transfer & Add';
+      applyTransferBtn.textContent = 'Add Malas';
       return;
     }
 
     const last = new Date(state.lastTransferDate);
     const now = new Date();
-    const isSameMonth = last.getMonth() === now.getMonth() && last.getFullYear() === now.getFullYear();
+    const diffTime = now.getTime() - last.getTime();
+    const fifteenDaysMs = 15 * 24 * 60 * 60 * 1000;
 
-    if (isSameMonth) {
+    if (diffTime < fifteenDaysMs) {
       applyTransferBtn.disabled = true;
-      const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-      const daysLeft = Math.ceil((nextMonth - now) / (1000 * 60 * 60 * 24));
-      applyTransferBtn.textContent = `Used (Wait ${daysLeft} days)`;
+      const msRemaining = fifteenDaysMs - diffTime;
+      const daysLeft = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
+      applyTransferBtn.textContent = `Used (Wait ${daysLeft} day${daysLeft > 1 ? 's' : ''})`;
       applyTransferBtn.style.opacity = '0.5';
     } else {
       applyTransferBtn.disabled = false;
-      applyTransferBtn.textContent = 'Transfer & Add';
+      applyTransferBtn.textContent = 'Add Malas';
       applyTransferBtn.style.opacity = '1';
     }
   }
 
   applyTransferBtn.addEventListener('click', () => {
     const malas = parseInt(transferMalasInput.value) || 0;
-    const chants = parseInt(transferChantsInput.value) || 0;
-    const totalToAdd = (malas * 108) + chants;
+    const totalToAdd = malas * 108;
 
     if (totalToAdd <= 0) {
-      transferStatus.textContent = "Please enter valid counts.";
+      transferStatus.textContent = "Please enter valid malas.";
       transferStatus.style.color = "var(--danger-color)";
       return;
     }
 
-    // Double check month restriction
+    // Double check 15 days restriction
     const last = state.lastTransferDate ? new Date(state.lastTransferDate) : null;
     const now = new Date();
-    if (last && last.getMonth() === now.getMonth() && last.getFullYear() === now.getFullYear()) {
-      transferStatus.textContent = "Transfer allowed only once per month.";
-      transferStatus.style.color = "var(--danger-color)";
-      return;
+    if (last) {
+      const diffTime = now.getTime() - last.getTime();
+      const fifteenDaysMs = 15 * 24 * 60 * 60 * 1000;
+      if (diffTime < fifteenDaysMs) {
+        transferStatus.textContent = "Adding malas is allowed only once in 15 days.";
+        transferStatus.style.color = "var(--danger-color)";
+        return;
+      }
     }
 
     state.total += totalToAdd;
@@ -522,12 +533,11 @@ document.addEventListener('DOMContentLoaded', () => {
     updateDisplay();
     checkTransferAvailability();
     
-    transferStatus.textContent = `Successfully added ${totalToAdd.toLocaleString()} chants!`;
+    transferStatus.textContent = `Successfully added ${malas.toLocaleString()} malas!`;
     transferStatus.style.color = "var(--success-color)";
     
     // Clear inputs
     transferMalasInput.value = '';
-    transferChantsInput.value = '';
   });
 
   window.addEventListener('online', updateOnlineStatus);

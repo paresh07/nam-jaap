@@ -185,11 +185,20 @@ document.addEventListener('DOMContentLoaded', () => {
     countTodayEl.textContent = state.today.toLocaleString();
     countTotalEl.textContent = state.total.toLocaleString();
     
-    // Calculate total malas completed based on daily history + today's progress + transferred malas
+    // Calculate total malas completed based on daily history (excluding today) + today's progress + transferred malas
     // to prevent remainder chants from causing the count to increase at arbitrary numbers (like 58 or 104)
-    const historyChants = Object.values(state.history || {}).reduce((a, b) => a + b, 0);
+    const currentDateStr = getLocalDateString();
+    let historyChants = 0;
+    let historyMalas = 0;
+    
+    for (const [date, count] of Object.entries(state.history || {})) {
+      if (date !== currentDateStr) {
+        historyChants += count;
+        historyMalas += Math.floor(count / 108);
+      }
+    }
+    
     const transferredChants = Math.max(0, state.total - (historyChants + state.today));
-    const historyMalas = Object.values(state.history || {}).reduce((sum, count) => sum + Math.floor(count / 108), 0);
     const todayMalas = Math.floor(state.today / 108);
     const transferredMalas = Math.floor(transferredChants / 108);
     const totalMalas = historyMalas + todayMalas + transferredMalas;

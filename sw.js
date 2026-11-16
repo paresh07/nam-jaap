@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nam-jaap-v17';
+const CACHE_NAME = 'nam-jaap-v18';
 const urlsToCache = [
   './',
   './index.html',
@@ -18,6 +18,23 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('fetch', event => {
+  // For navigation requests (loading index.html), use Network-First to guarantee fresh updates
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          if (response && response.status === 200) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
+
+  // For other assets, try Cache first, then Network
   event.respondWith(
     caches.match(event.request)
       .then(response => {
@@ -46,17 +63,15 @@ self.addEventListener('fetch', event => {
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(clients.claim());
-  const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
+          if (cacheName !== CACHE_NAME) {
             return caches.delete(cacheName);
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
 });

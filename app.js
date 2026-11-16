@@ -25,24 +25,43 @@ document.addEventListener('DOMContentLoaded', () => {
   const roundTimerEl = document.getElementById('round-timer');
   const last10DaysBody = document.getElementById('last-10-days-body');
 
+  // Life Sadhana elements
+  const lifeDaysLivedEl = document.getElementById('life-days-lived');
+  const lifeChantsPerDayEl = document.getElementById('life-chants-per-day');
+  const lifeMalasPerDayEl = document.getElementById('life-malas-per-day');
+  const lifeTotalDaysEl = document.getElementById('life-total-days');
+
   // Modals
   const settingsModal = document.getElementById('settings-modal');
   const reportsModal = document.getElementById('reports-modal');
   const resetModal = document.getElementById('reset-modal');
   
   const mantraInput = document.getElementById('mantra-input');
+  const birthDateInput = document.getElementById('birth-date-input');
   const audioTrackSelect = document.getElementById('audio-track');
+  const musicVolumeInput = document.getElementById('music-volume');
+  const volumeLabel = document.getElementById('volume-label');
   const vibrationToggle = document.getElementById('vibration-toggle');
+  const chimeToggle = document.getElementById('chime-toggle');
+  const wakelockToggle = document.getElementById('wakelock-toggle');
+
   const reportPeriodSelect = document.getElementById('report-period');
   const reportTableBody = document.getElementById('report-table-body');
   
   const saveSettingsBtn = document.getElementById('save-settings');
   const cancelSettingsBtn = document.getElementById('cancel-settings');
+  const closeSettingsX = document.getElementById('close-settings-x');
   
   const triggerResetBtn = document.getElementById('trigger-reset-btn');
   const cancelResetBtn = document.getElementById('cancel-reset');
   const confirmResetBtn = document.getElementById('confirm-reset');
   const closeReportsBtn = document.getElementById('close-reports');
+
+  // Backup Elements
+  const exportBackupBtn = document.getElementById('export-backup-btn');
+  const importBackupBtn = document.getElementById('import-backup-btn');
+  const importFileInput = document.getElementById('import-file-input');
+  const backupStatus = document.getElementById('backup-status');
 
   // Stop propagation on buttons and modals so they don't trigger the tap
   const interactiveElements = [
@@ -55,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
   
   interactiveElements.forEach(el => {
+    if (!el) return;
     el.addEventListener('pointerdown', (e) => e.stopPropagation());
     el.addEventListener('click', (e) => e.stopPropagation());
   });
@@ -65,7 +85,11 @@ document.addEventListener('DOMContentLoaded', () => {
     today: 0,
     lastDate: '',
     mantra: 'राधा',
+    birthDate: '',
     vibration: true,
+    bellChime: true,
+    wakeLockEnabled: true,
+    musicVolume: 70,
     audioTrack: 'track1.mp3',
     bestMalas: 0,
     bestDaily: 0,
@@ -78,6 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let sessionStartTime = Date.now();
   let roundStartTime = Date.now();
   let timerInterval;
+  let wakeLock = null;
 
   function getLocalDateString() {
     const d = new Date();
@@ -85,6 +110,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`; // Format: YYYY-MM-DD
+  }
+
+  // Seamless Midnight Rollover check
+  function ensureCurrentDay() {
+    const currentDateStr = getLocalDateString();
+    if (state.lastDate !== currentDateStr) {
+      if (state.lastDate && state.today > 0 && !state.history[state.lastDate]) {
+        state.history[state.lastDate] = state.today;
+      }
+      state.today = 0;
+      state.lastDate = currentDateStr;
+      saveState();
+      updateDisplay();
+    }
   }
 
   function loadState() {
@@ -96,7 +135,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     if (typeof state.vibration === 'undefined') state.vibration = true;
+    if (typeof state.bellChime === 'undefined') state.bellChime = true;
+    if (typeof state.wakeLockEnabled === 'undefined') state.wakeLockEnabled = true;
+    if (typeof state.musicVolume === 'undefined') state.musicVolume = 70;
     if (typeof state.audioTrack === 'undefined') state.audioTrack = 'track1.mp3';
+    if (typeof state.birthDate === 'undefined') state.birthDate = '';
 
     if (!state.history) {
       state.history = {};
@@ -112,17 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof state.lastTransferDate === 'undefined') state.lastTransferDate = null;
     if (typeof state.showParticles === 'undefined') state.showParticles = true;
     
-    // Check if it's a new day
-    const currentDateStr = getLocalDateString();
-    if (state.lastDate !== currentDateStr) {
-      if (state.lastDate && state.today > 0 && !state.history[state.lastDate]) {
-        state.history[state.lastDate] = state.today;
-      }
-      state.today = 0;
-      state.lastDate = currentDateStr;
-      saveState();
-    }
-    
+    ensureCurrentDay();
     updateDisplay();
   }
 
@@ -171,10 +204,56 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function updateLifeSadhanaDisplay() {
+    if (!state.birthDate) {
+      if (lifeDaysLivedEl) lifeDaysLivedEl.textContent = 'Set birthday in Settings';
+      if (lifeChantsPerDayEl) lifeChantsPerDayEl.textContent = '--';
+      if (lifeMalasPerDayEl) lifeMalasPerDayEl.textContent = '--';
+      if (lifeTotalDaysEl) lifeTotalDaysEl.textContent = '--';
+      return;
+    }
+
+    const birth = new Date(state.birthDate);
+    const now = new Date();
+    birth.setHours(0, 0, 0, 0);
+    const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffTime = todayMid.getTime() - birth.getTime();
+
+    if (isNaN(diffTime) || diffTime <= 0) {
+      if (lifeDaysLivedEl) lifeDaysLivedEl.textContent = 'Invalid birthday';
+      if (lifeChantsPerDayEl) lifeChantsPerDayEl.textContent = '--';
+      if (lifeMalasPerDayEl) lifeMalasPerDayEl.textContent = '--';
+      if (lifeTotalDaysEl) lifeTotalDaysEl.textContent = '--';
+      return;
+    }
+
+    const daysLived = Math.max(1, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+    const yearsLived = (daysLived / 365.25).toFixed(1);
+    
+    // Average chants & malas per day of life
+    const chantsPerDay = (state.total / daysLived).toFixed(1);
+    const totalMalas = state.total / 108;
+    const malasPerDay = (totalMalas / daysLived).toFixed(2);
+
+    if (lifeDaysLivedEl) lifeDaysLivedEl.textContent = `${yearsLived} yrs lived (~${daysLived.toLocaleString()} days)`;
+    if (lifeChantsPerDayEl) lifeChantsPerDayEl.textContent = chantsPerDay;
+    if (lifeMalasPerDayEl) lifeMalasPerDayEl.textContent = malasPerDay;
+    if (lifeTotalDaysEl) lifeTotalDaysEl.textContent = daysLived.toLocaleString();
+  }
+
   function updateDisplay() {
     mantraText.textContent = state.mantra;
     mantraInput.value = state.mantra;
+    if (birthDateInput) birthDateInput.value = state.birthDate || '';
     vibrationToggle.checked = state.vibration;
+    if (chimeToggle) chimeToggle.checked = state.bellChime;
+    if (wakelockToggle) wakelockToggle.checked = state.wakeLockEnabled;
+    
+    if (musicVolumeInput) {
+      musicVolumeInput.value = state.musicVolume;
+      if (volumeLabel) volumeLabel.textContent = `${state.musicVolume}%`;
+    }
+    bgAudio.volume = (state.musicVolume ?? 70) / 100;
     
     // Set track dropdown and audio source correctly
     audioTrackSelect.value = state.audioTrack;
@@ -186,7 +265,6 @@ document.addEventListener('DOMContentLoaded', () => {
     countTotalEl.textContent = state.total.toLocaleString();
     
     // Calculate total malas completed based on daily history (excluding today) + today's progress + transferred malas
-    // to prevent remainder chants from causing the count to increase at arbitrary numbers (like 58 or 104)
     const currentDateStr = getLocalDateString();
     let historyChants = 0;
     let historyMalas = 0;
@@ -207,6 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     updateMalaDisplay();
     updateDashboard();
+    updateLifeSadhanaDisplay();
     
     // Update particles button state
     if (state.showParticles) {
@@ -248,10 +327,83 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Synthesized Temple Bell / Singing Bowl Chime (Web Audio API - Offline & Instant)
+  function playTempleChime() {
+    if (!state.bellChime) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      if (!window._audioCtx) {
+        window._audioCtx = new AudioCtx();
+      }
+      const ctx = window._audioCtx;
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+      
+      const now = ctx.currentTime;
+      // Harmonics for a resonant temple bell / Tibetan singing bowl (528 Hz base)
+      const harmonics = [
+        { freq: 528, gain: 0.35, decay: 3.2 },
+        { freq: 1056, gain: 0.16, decay: 2.6 },
+        { freq: 1584, gain: 0.08, decay: 1.9 },
+        { freq: 2112, gain: 0.03, decay: 1.4 }
+      ];
+
+      harmonics.forEach(h => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(h.freq, now);
+
+        gain.gain.setValueAtTime(h.gain, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + h.decay);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + h.decay);
+      });
+    } catch (err) {
+      console.log('Chime sound error:', err);
+    }
+  }
+
+  // Screen Wake Lock API
+  async function requestWakeLock() {
+    if (!state.wakeLockEnabled || !('wakeLock' in navigator)) return;
+    try {
+      if (wakeLock === null) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => {
+          wakeLock = null;
+        });
+      }
+    } catch (err) {
+      // Wake lock can fail if backgrounded or battery saver active
+    }
+  }
+
+  function releaseWakeLock() {
+    if (wakeLock) {
+      wakeLock.release().catch(() => {});
+      wakeLock = null;
+    }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      ensureCurrentDay();
+      if (state.wakeLockEnabled) {
+        requestWakeLock();
+      }
+    }
+  });
+
   function startTimers() {
     if (timerInterval) clearInterval(timerInterval);
-    
-    // Track when the last tick was to add to lifetime total
     let lastTickTime = Date.now();
 
     timerInterval = setInterval(() => {
@@ -260,8 +412,9 @@ document.addEventListener('DOMContentLoaded', () => {
       
       if (deltaSeconds >= 1) {
         state.lifetimeTimeSeconds += deltaSeconds;
-        lastTickTime = now - ((now - lastTickTime) % 1000); // Keep the remainder for precision
-        saveState(); // Save periodically
+        lastTickTime = now - ((now - lastTickTime) % 1000);
+        saveState();
+        ensureCurrentDay();
       }
 
       // Display Total Lifetime Time
@@ -299,9 +452,8 @@ document.addEventListener('DOMContentLoaded', () => {
     particle.className = 'floating-mantra';
     particle.textContent = state.mantra;
     
-    // Random float direction
-    const moveX = (Math.random() - 0.5) * 200; // -100 to 100
-    const moveY = -150 - (Math.random() * 150); // -150 to -300
+    const moveX = (Math.random() - 0.5) * 200;
+    const moveY = -150 - (Math.random() * 150);
     
     particle.style.left = `${x}px`;
     particle.style.top = `${y}px`;
@@ -309,12 +461,13 @@ document.addEventListener('DOMContentLoaded', () => {
     particle.style.setProperty('--tw-translateY', `${moveY}px`);
     
     document.body.appendChild(particle);
-    
     setTimeout(() => particle.remove(), 1500);
   }
 
   // Handle taps
   tapArea.addEventListener('pointerdown', (e) => {
+    ensureCurrentDay();
+    
     state.today++;
     state.total++;
     
@@ -324,21 +477,24 @@ document.addEventListener('DOMContentLoaded', () => {
     
     saveState();
     updateDisplay();
+    requestWakeLock();
     
     if (navigator.vibrate && state.vibration) {
       if (state.today % 108 === 0) {
-        navigator.vibrate([100, 50, 100]);
+        navigator.vibrate([120, 60, 120]);
       } else {
-        navigator.vibrate(40);
+        navigator.vibrate(35);
       }
     }
     
     createFullScreenRipple(e.clientX, e.clientY);
     createFloatingMantra(e.clientX, e.clientY);
     pulseElement(countTodayEl);
+    
     if (state.today % 108 === 0) {
       pulseElement(countMalasEl);
       roundStartTime = Date.now(); // Restart round timer
+      playTempleChime();
     }
   });
 
@@ -350,6 +506,7 @@ document.addEventListener('DOMContentLoaded', () => {
       bgAudio.pause();
       musicBtn.classList.remove('active');
     } else {
+      bgAudio.volume = (state.musicVolume ?? 70) / 100;
       bgAudio.play().then(() => {
         musicBtn.classList.add('active');
       }).catch(err => {
@@ -359,6 +516,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     isPlaying = !isPlaying;
   });
+
+  // Music Volume Slider
+  if (musicVolumeInput) {
+    musicVolumeInput.addEventListener('input', (e) => {
+      const vol = parseInt(e.target.value, 10);
+      if (volumeLabel) volumeLabel.textContent = `${vol}%`;
+      bgAudio.volume = vol / 100;
+      state.musicVolume = vol;
+    });
+  }
+
+  // Preset Chips
+  document.querySelectorAll('.preset-chip').forEach(chip => {
+    chip.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const mantra = chip.getAttribute('data-mantra');
+      if (mantra) {
+        mantraInput.value = mantra;
+      }
+    });
+  });
+
+  // Birthday click in dashboard leads to settings
+  if (lifeDaysLivedEl) {
+    lifeDaysLivedEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      settingsModal.classList.add('active');
+      if (birthDateInput) birthDateInput.focus();
+    });
+  }
 
   // Particle Logic
   particlesBtn.addEventListener('click', (e) => {
@@ -371,6 +558,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Settings Logic
   settingsBtn.addEventListener('click', () => settingsModal.classList.add('active'));
   cancelSettingsBtn.addEventListener('click', () => settingsModal.classList.remove('active'));
+  if (closeSettingsX) closeSettingsX.addEventListener('click', () => settingsModal.classList.remove('active'));
   
   saveSettingsBtn.addEventListener('click', () => {
     const newMantra = mantraInput.value.trim();
@@ -378,13 +566,30 @@ document.addEventListener('DOMContentLoaded', () => {
       state.mantra = newMantra;
     }
     
+    if (birthDateInput) {
+      state.birthDate = birthDateInput.value;
+    }
+
     state.vibration = vibrationToggle.checked;
+    if (chimeToggle) state.bellChime = chimeToggle.checked;
+    if (wakelockToggle) {
+      state.wakeLockEnabled = wakelockToggle.checked;
+      if (state.wakeLockEnabled) {
+        requestWakeLock();
+      } else {
+        releaseWakeLock();
+      }
+    }
     
+    if (musicVolumeInput) {
+      state.musicVolume = parseInt(musicVolumeInput.value, 10);
+      bgAudio.volume = state.musicVolume / 100;
+    }
+
     const newTrack = audioTrackSelect.value;
     if (newTrack !== state.audioTrack) {
       state.audioTrack = newTrack;
       bgAudio.src = state.audioTrack;
-      // If currently playing, start playing the new track immediately
       if (isPlaying) {
         bgAudio.play().catch(e => console.log(e));
       }
@@ -394,6 +599,67 @@ document.addEventListener('DOMContentLoaded', () => {
     updateDisplay();
     settingsModal.classList.remove('active');
   });
+
+  // Backup & Restore Logic
+  if (exportBackupBtn) {
+    exportBackupBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      try {
+        const backupData = JSON.stringify(state, null, 2);
+        const blob = new Blob([backupData], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const dateStr = getLocalDateString();
+        a.href = url;
+        a.download = `nam-jaap-backup-${dateStr}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        backupStatus.textContent = "Backup exported successfully!";
+        backupStatus.style.color = "var(--success-color)";
+      } catch (err) {
+        backupStatus.textContent = "Failed to export backup.";
+        backupStatus.style.color = "var(--danger-color)";
+      }
+    });
+  }
+
+  if (importBackupBtn && importFileInput) {
+    importBackupBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      importFileInput.click();
+    });
+
+    importFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const imported = JSON.parse(event.target.result);
+          if (typeof imported.total === 'undefined' || typeof imported.history !== 'object') {
+            throw new Error('Invalid format');
+          }
+
+          if (confirm(`Restore backup? This will restore ${imported.total.toLocaleString()} total chants and history.`)) {
+            state = { ...state, ...imported };
+            saveState();
+            updateDisplay();
+            backupStatus.textContent = `Restored ${imported.total.toLocaleString()} chants successfully!`;
+            backupStatus.style.color = "var(--success-color)";
+          }
+        } catch (err) {
+          backupStatus.textContent = "Error: Invalid backup file format.";
+          backupStatus.style.color = "var(--danger-color)";
+        }
+        importFileInput.value = '';
+      };
+      reader.readAsText(file);
+    });
+  }
 
   // Reset Logic inside Settings
   triggerResetBtn.addEventListener('click', () => {
@@ -544,8 +810,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     transferStatus.textContent = `Successfully added ${malas.toLocaleString()} malas!`;
     transferStatus.style.color = "var(--success-color)";
-    
-    // Clear inputs
     transferMalasInput.value = '';
   });
 
@@ -557,6 +821,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateOnlineStatus();
   startTimers();
   checkTransferAvailability();
+  requestWakeLock();
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

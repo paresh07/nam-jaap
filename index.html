@@ -7,10 +7,14 @@
   <meta name="description" content="A beautiful and serene Nam Jaap counter that works offline.">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0b101e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Nam Jaap">
+  <link rel="apple-touch-icon" href="icon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Devanagari:wght@400;600&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=10">
+  <link rel="stylesheet" href="styles.css?v=12">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
 </head>
 <body>
@@ -70,10 +74,32 @@
       </div>
     </footer>
 
-    <!-- New Dashboard Section -->
+    <!-- Dashboard Section -->
     <section class="dashboard-section" id="dashboard">
       <h2 class="dashboard-title">Personal Records</h2>
       
+      <!-- Life Sadhana (Since Birthday) -->
+      <div class="life-sadhana-section" id="life-sadhana-card">
+        <div class="life-sadhana-header">
+          <span class="best-label">Life Sadhana (Since Birth)</span>
+          <span id="life-days-lived" class="life-subtext">Set birthday in Settings</span>
+        </div>
+        <div class="life-stats-grid">
+          <div class="life-stat-box">
+            <span class="life-stat-value" id="life-chants-per-day">--</span>
+            <span class="life-stat-label">Chants / Day of Life</span>
+          </div>
+          <div class="life-stat-box">
+            <span class="life-stat-value" id="life-malas-per-day">--</span>
+            <span class="life-stat-label">Malas / Day of Life</span>
+          </div>
+          <div class="life-stat-box">
+            <span class="life-stat-value" id="life-total-days">--</span>
+            <span class="life-stat-label">Days of Life</span>
+          </div>
+        </div>
+      </div>
+
       <div class="bests-grid">
         <div class="best-card">
           <span class="best-label">Highest Daily Malas</span>
@@ -146,12 +172,29 @@
 
   <!-- Settings Modal -->
   <div id="settings-modal" class="modal">
-    <div class="modal-content">
-      <h2>Settings</h2>
+    <div class="modal-content settings-modal-content">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="close-btn" id="close-settings-x" aria-label="Close">&times;</button>
+      </div>
       
       <div class="form-group">
         <label for="mantra-input">Chant Name / Mantra</label>
         <input type="text" id="mantra-input" value="राधा" placeholder="e.g. राधा, Ram, Om">
+        <div class="preset-chips">
+          <button type="button" class="preset-chip" data-mantra="राधा">राधा</button>
+          <button type="button" class="preset-chip" data-mantra="हरे कृष्ण">हरे कृष्ण</button>
+          <button type="button" class="preset-chip" data-mantra="श्री राम">श्री राम</button>
+          <button type="button" class="preset-chip" data-mantra="ॐ नमः शिवाय">ॐ नमः शिवाय</button>
+          <button type="button" class="preset-chip" data-mantra="ॐ नमो भगवते वासुदेवाय">ॐ नमो भगवते</button>
+          <button type="button" class="preset-chip" data-mantra="ॐ">ॐ</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="birth-date-input">Your Date of Birth (Life Sadhana)</label>
+        <input type="date" id="birth-date-input" class="styled-input">
+        <p class="credits-text">Used to calculate your total days lived and your lifetime chants/day average.</p>
       </div>
 
       <div class="form-group">
@@ -160,6 +203,14 @@
           <option value="track1.mp3">Track 1</option>
           <option value="track2.mp3">Track 2</option>
         </select>
+      </div>
+
+      <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+          <label for="music-volume" style="margin-bottom: 0;">Music Volume</label>
+          <span id="volume-label" style="font-size: 0.85rem; color: var(--primary-color);">70%</span>
+        </div>
+        <input type="range" id="music-volume" min="0" max="100" value="70" class="styled-range">
       </div>
       
       <div class="form-group toggle-group">
@@ -170,13 +221,42 @@
         </label>
       </div>
 
-      <div class="modal-actions">
+      <div class="form-group toggle-group">
+        <label for="chime-toggle">Temple Bell Chime on 108</label>
+        <label class="switch">
+          <input type="checkbox" id="chime-toggle" checked>
+          <span class="slider round"></span>
+        </label>
+      </div>
+
+      <div class="form-group toggle-group">
+        <label for="wakelock-toggle">Keep Screen Awake (Wake Lock)</label>
+        <label class="switch">
+          <input type="checkbox" id="wakelock-toggle" checked>
+          <span class="slider round"></span>
+        </label>
+      </div>
+
+      <div class="modal-actions" style="margin-top: 1rem;">
         <button id="cancel-settings" class="modal-btn cancel">Close</button>
         <button id="save-settings" class="modal-btn confirm">Save Settings</button>
       </div>
       
       <div class="credits-section">
         <p class="credits-text">Audio courtesy of original YouTube creators. Provided for spiritual purposes.</p>
+      </div>
+
+      <hr class="modal-divider">
+
+      <div class="form-group">
+        <label>Data Backup & Transfer</label>
+        <p class="credits-text" style="margin-bottom: 0.5rem;">Save your counts to a backup file or restore them anytime.</p>
+        <div style="display: flex; gap: 0.5rem;">
+          <button id="export-backup-btn" type="button" class="modal-btn secondary-action" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); font-size: 0.85rem;">📥 Export Backup</button>
+          <button id="import-backup-btn" type="button" class="modal-btn secondary-action" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); font-size: 0.85rem;">📤 Restore Backup</button>
+          <input type="file" id="import-file-input" accept=".json" style="display: none;">
+        </div>
+        <p id="backup-status" class="credits-text" style="margin-top: 0.5rem; min-height: 1rem;"></p>
       </div>
 
       <hr class="modal-divider">
@@ -211,6 +291,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=11"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>

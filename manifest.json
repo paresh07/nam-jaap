@@ -3,8 +3,8 @@
   "short_name": "Nam Jaap",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#3b82f6",
+  "background_color": "#0b101e",
+  "theme_color": "#0b101e",
   "description": "A beautiful Nam Jaap counter that works offline.",
   "icons": [
     {
